@@ -32,16 +32,14 @@ import static androidx.core.content.ContextCompat.startActivity;
 
 import android.content.res.AssetManager;
 
-/** Honnywellintermecpr3Plugin */
 
 public class Honnywellintermecpr3Plugin  implements FlutterPlugin, MethodCallHandler{
-  /// The MethodChannel that will the communication between Flutter and native Android
-  ///
-  /// This local reference serves to register the plugin with the Flutter Engine and unregister it
-  /// when the Flutter Engine is detached from the Activity
+ 
   private MethodChannel channel;
   private String jsonCmdAttribStr = null;
   Context c;
+  // Need to revisit on this
+  LinePrinter lp = null;
 
   @Override
   public void onAttachedToEngine(@NonNull FlutterPluginBinding flutterPluginBinding) {
@@ -52,52 +50,26 @@ public class Honnywellintermecpr3Plugin  implements FlutterPlugin, MethodCallHan
  
   @Override
   public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
-    // if (call.method.equals("printImg")) {
-
-    //   String deviceName = call.argument("deviceName");
-    //   String deviceBleutoothMacAdress = call.argument("deviceBleutoothMacAdress");
-    //   String imageb64 = call.argument("imageb64");
-    //   Intent intent = new Intent(this.c,PrintActivity.class);
-    //   intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-    //   intent.putExtra("deviceName",deviceName);
-    //   intent.putExtra("deviceBleutoothMacAdress",deviceBleutoothMacAdress);
-    //   intent.putExtra("imageb64",imageb64);
-    //   startActivity(this.c,intent,null);
-
-
-
-    // } else if(call.method.equals("printGeneralWithActivity")){ 
-
-    //   String deviceName = call.argument("deviceName");
-    //   String deviceBleutoothMacAdress = call.argument("deviceBleutoothMacAdress");
-    //   ArrayList<String> commande = call.argument("cmd");
-    //   Log.d ("cmd",commande.toString());
-    //   Intent intent = new Intent(this.c,PrintActivity.class);
-    //   intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-    //   intent.putExtra("deviceName",deviceName);
-    //   intent.putExtra("deviceBleutoothMacAdress",deviceBleutoothMacAdress);
-    //   intent.putExtra("cmd",commande);
-    //   startActivity(this.c,intent,null);
-      
-    //   } else 
-	  if(call.method.equals("printGeneral")){
+ 
+	if(call.method.equals("printGeneral")){
 
 	try{
        String deviceName = call.argument("deviceName");
       String deviceBleutoothMacAdress = call.argument("deviceBleutoothMacAdress");
       ArrayList<String> commande = call.argument("cmd");
-      Log.d ("cmd",commande.toString());
-      readAssetFiles();
+	 Boolean shouldDisconnect = call.argument("shouldDisconnect");
+
+		readAssetFiles();
 
 
-					PrintTask task = new PrintTask();
+		PrintTask task = new PrintTask();
 
-			PrinterTaskParams params = new PrinterTaskParams(commande, deviceName,c,deviceBleutoothMacAdress,result);
-				
-				Log.d ("=================>EXECUTING TASK","==================");
-						task.execute(params);
-						
-			Log.d ("=================>EXECUTING DONE","==================");
+		PrinterTaskParams params = new PrinterTaskParams(commande, deviceName,c,deviceBleutoothMacAdress,result,shouldDisconnect);
+			
+		Log.d ("=================>EXECUTING TASK","==================");
+		task.execute(params);
+					
+		Log.d ("=================>EXECUTING DONE","==================");
 
 
 				// Intent intent = new Intent(this.c,PrintActivity.class);
@@ -200,14 +172,16 @@ class PrinterTaskParams {
     String printerName;
     String printerAddresss;
     Context cont;
+	Boolean shouldDisconnect;
 	Result result;
 
-    PrinterTaskParams(ArrayList<String> linesToPrint, String printerHeader, Context cont  , String printerAddresss,Result result) {
+    PrinterTaskParams(ArrayList<String> linesToPrint, String printerHeader, Context cont  , String printerAddresss,Result result, Boolean shouldDisconnect) {
         this.linesToPrint = linesToPrint;
         this.printerName = printerName;
         this.printerAddresss = printerAddresss;
         this.cont = cont;
 		this.result = result;
+		this.shouldDisconnect = shouldDisconnect;
     }
 }
 	public class PrintTask extends AsyncTask<PrinterTaskParams, Integer, String> {
@@ -249,11 +223,12 @@ class PrinterTaskParams {
 		@Override
 		protected String doInBackground(PrinterTaskParams... args)
 		{
-			LinePrinter lp = null;
+			
 			String sResult = null;
-			Boolean connectionStatus = null;
-
+			Boolean connectionStatus = false;
+			
       		PrinterTaskParams param = args[0];
+			Boolean shouldDisconnect = param.shouldDisconnect;
 			String sPrinterID = param.printerName;
 			String sPrinterAddr = param.printerAddresss;
       		ArrayList<String> commande = param.linesToPrint;
@@ -294,7 +269,17 @@ class PrinterTaskParams {
 			// 	// The printer address should be a serial port name.
 			// 	sPrinterURI = "serial://" + sPrinterAddr;
 			// }
-			Log.d("------------ LP CONTEXT","-----------");
+		
+
+			try
+			{
+				
+			Log.d("------------ LP PRINT","-----------");
+
+			if(lp == null){
+
+
+					Log.d("------------ LP CONTEXT","-----------");
 			LinePrinter.ExtraSettings exSettings = new LinePrinter.ExtraSettings();
 
 			exSettings.setContext(lContext);
@@ -310,19 +295,16 @@ class PrinterTaskParams {
 					}
 				};
 
-			try
-			{
-			Log.d("------------ LP PRINT","-----------");
-				lp = new LinePrinter(
+				Log.d("************ LPS CONNECTING","************");
+					lp = new LinePrinter(
 						jsonCmdAttribStr,
 						"PR3",
 						sPrinterURI,
 						exSettings);
-  			Log.d("------------ LP PRINT= INIT DONE","-----------");
-				// Registers to listen for the print progress events.
-				lp.addPrintProgressListener(progressListener);
+							lp.addPrintProgressListener(progressListener);
 
-				//A retry sequence in case the bluetooth socket is temporarily not ready
+
+							//A retry sequence in case the bluetooth socket is temporarily not ready
 				int numtries = 0;
 				int maxretry = 2;
 				while(numtries < maxretry)
@@ -342,6 +324,14 @@ class PrinterTaskParams {
 					lp.connect();//Final retry
 					connectionStatus = true;
 				}
+			} 
+			
+			
+  			Log.d("------------ LP PRINT= INIT DONE","-----------");
+				// Registers to listen for the print progress events.
+			
+
+				
 
 				// Check the state of the printer and abort printing if there are
 				// any critical errors detected.
@@ -432,7 +422,7 @@ class PrinterTaskParams {
 				}
 				 
 				sResult = "Number of bytes sent to printer: " + lp.getBytesWritten();
-				// flutterResult.success("PRINT DONE");
+				flutterResult.success("PRINT DONE");
 			}
 			// catch (Exception ex)
 			// {
@@ -444,6 +434,8 @@ class PrinterTaskParams {
 			{
 				sResult = "LinePrinterException: " + ex.getMessage();
 				flutterResult.error("Intermec Error: ",sResult,null);
+					disconnectConnection(connectionStatus);
+						connectionStatus = false;
 			}
 			catch (Exception ex)
 			{
@@ -452,16 +444,20 @@ class PrinterTaskParams {
 				else
 					sResult = "Unexpected exception.";
 				flutterResult.error("Intermec Error: ",sResult,null);
+						disconnectConnection(connectionStatus);
+						connectionStatus = false;
 			}
 			finally
 			{
-				if (lp != null && connectionStatus)
+				if (lp != null)
 				{
 					try
 					{
-						lp.disconnect();  // Disconnects from the printer
-						lp.close();  
-						flutterResult.success("SUCCESS");// Releases resources
+						if(shouldDisconnect){
+						disconnectConnection(connectionStatus);
+						connectionStatus = false;
+						}
+						
 					}
 					catch (Exception ex) {
 						Log.d("===========> ERROR IS DISCONNECTIN","");
@@ -473,6 +469,19 @@ class PrinterTaskParams {
 			// The result string will be passed to the onPostExecute method
 			// for display in the the Progress and Status text box.
 			return sResult;
+		}
+
+		public void disconnectConnection(Boolean connectionStatus){
+	try	{	
+		Log.d("**********  KILLING CONNECTION *******","");
+		lp.disconnect();  
+			lp.close();  
+			lp = null;
+			Log.d("**********  KILLED  *******","");
+			}catch (Exception ex) {
+						Log.d("===========> ERROR IS DISCONNECTIN","");
+						// flutterResult.error("Disconnect Error - Intermec: ",sResult,null);
+					}
 		}
 
 		/**

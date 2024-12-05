@@ -20,13 +20,17 @@ class Honnywellintermecpr3 {
     return res;
   }
 
-
   Future<dynamic> printGeneral(
-      String deviceName, String deviceBleutoothMacAdress, List cmd) async {
+    String deviceName,
+    String deviceBleutoothMacAdress,
+    List cmd, {
+    bool shouldDisconnect = true,
+  }) async {
     final String res = await _channel.invokeMethod('printGeneral', {
       "deviceName": deviceName,
       "deviceBleutoothMacAdress": deviceBleutoothMacAdress,
-      "cmd": cmd
+      "cmd": cmd,
+      "shouldDisconnect": shouldDisconnect,
     });
     return res;
   }
