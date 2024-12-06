@@ -90,12 +90,14 @@ class _HomePageState extends State<HomePage> {
                         cmd.add("image;$string");
 
                         Honnywellintermecpr3 n = Honnywellintermecpr3();
-                        await n.printGeneral(
-                          name ?? "PR3", "88:6B:0F:AF:11:DB",
-                          // address,
-                          cmd,
-                          shouldDisconnect: true,
-                        );
+                        for (var i = 0; i < 5; i++) {
+                          await n.printGeneral(
+                            name ?? "PR3",
+                            address,
+                            cmd,
+                            shouldDisconnect: i == 4,
+                          );
+                        }
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             behavior: SnackBarBehavior.floating,
